@@ -23,7 +23,9 @@ export const MODULE_BLACKLIST = [
  * Check if a module should be hidden from the UI
  */
 export const isModuleBlacklisted = (moduleName: string): boolean => {
-  return MODULE_BLACKLIST.includes(moduleName as any);
+  return MODULE_BLACKLIST.includes(
+    moduleName as (typeof MODULE_BLACKLIST)[number]
+  );
 };
 
 /**

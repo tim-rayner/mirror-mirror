@@ -55,7 +55,10 @@ export const Modules = () => {
         // Initialize mirror visibility states from API response
         const initial = filteredModules.reduce<Record<string, boolean>>(
           (acc, m) => {
-            acc[getId(m)] = !(m.hidden ?? false);
+            // Force QRAccess to be considered as hidden
+            const isHidden =
+              m.name === "MMM-QRAccess" ? true : m.hidden ?? false;
+            acc[getId(m)] = !isHidden;
             return acc;
           },
           {}
@@ -69,7 +72,8 @@ export const Modules = () => {
           name: m.name,
           longname: m.longname,
           desc: m.desc,
-          hidden: m.hidden,
+          // Force QRAccess to be considered as hidden
+          hidden: m.name === "MMM-QRAccess" ? true : m.hidden,
         }));
         initializeAppStates(moduleData);
       } catch (e) {

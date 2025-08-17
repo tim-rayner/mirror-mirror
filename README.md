@@ -14,7 +14,7 @@ A whimsical, fairytale-themed web controller for Magic Mirror 2, communicating w
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
+- Node.js 18+ and npm
 - Magic Mirror 2 with MMM-Remote-Control module installed
 
 ### Installation
@@ -29,7 +29,7 @@ cd mirror-mirror
 2. Install dependencies:
 
 ```bash
-pnpm install
+npm install
 ```
 
 3. Configure the API URL:
@@ -43,7 +43,7 @@ VITE_MIRROR_API_URL=http://192.168.1.80:8080
 4. Start the development server:
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 5. Open your browser to `http://localhost:5175`
@@ -176,10 +176,10 @@ src/
 
 ### Available Scripts
 
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm preview` - Preview production build
-- `pnpm lint` - Run ESLint
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
 ### Tech Stack
 

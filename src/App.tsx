@@ -8,11 +8,13 @@ import { Modules } from "./pages/Modules";
 import { System } from "./pages/System";
 import { theme } from "./theme";
 
+const BASENAME = "/charlottes-magic-mirror";
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <BrowserRouter>
+      <BrowserRouter basename={BASENAME}>
         <Routes>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Dashboard />} />

@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useDisableQRAccess } from "../hooks";
 
 const navigationItems = [
   { path: "/", label: "Dashboard", icon: DashboardIcon },
@@ -37,6 +38,9 @@ export const AppLayout = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Disable QRAccess module on app mount
+  useDisableQRAccess();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

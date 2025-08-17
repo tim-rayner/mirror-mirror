@@ -21,7 +21,14 @@ export const useAppManager = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setAppStates(JSON.parse(stored));
+        const parsedStates = JSON.parse(stored);
+
+        // Force QRAccess to be disabled in localStorage
+        if (parsedStates["MMM-QRAccess"]) {
+          parsedStates["MMM-QRAccess"].isVisibleOnMirror = false;
+        }
+
+        setAppStates(parsedStates);
       }
     } catch (error) {
       console.error("Failed to load app states from localStorage:", error);
@@ -50,12 +57,18 @@ export const useAppManager = () => {
         const id = module.identifier ?? module.longname ?? module.name;
         const existingState = currentAppStates[id];
 
+        // Special case: QRAccess should always be disabled
+        const isQRAccess = module.name === "MMM-QRAccess";
+        const isVisibleOnMirror = isQRAccess
+          ? false // Always force QRAccess to be disabled
+          : existingState?.isVisibleOnMirror ?? !module.hidden;
+
         newStates[id] = {
           id,
           name: module.name,
           longname: module.longname,
           desc: module.desc,
-          isVisibleOnMirror: existingState?.isVisibleOnMirror ?? !module.hidden,
+          isVisibleOnMirror,
           isHiddenFromDashboard: existingState?.isHiddenFromDashboard ?? false,
         };
       });

@@ -40,7 +40,8 @@ export const Dashboard = () => {
             name: m.name,
             longname: m.longname,
             desc: m.desc,
-            hidden: m.hidden,
+            // Force QRAccess to be considered as hidden
+            hidden: m.name === "MMM-QRAccess" ? true : m.hidden,
           }));
           initializeAppStates(moduleData);
         }

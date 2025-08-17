@@ -1,0 +1,62 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          pink: "#FF4FB6",
+          black: "#000000",
+          white: "#FFFFFF",
+        },
+        secondary: {
+          grayLight: "#F9F9F9",
+          grayMedium: "#C4C4C4",
+          grayDark: "#333333",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "Helvetica Neue", "Arial", "sans-serif"],
+      },
+      fontSize: {
+        h1: "48px",
+        h2: "32px",
+        h3: "24px",
+        bodyLarge: "18px",
+        body: "16px",
+        small: "14px",
+      },
+      fontWeight: {
+        regular: 400,
+        medium: 500,
+        bold: 700,
+      },
+      lineHeight: {
+        heading: 1.2,
+        body: 1.5,
+      },
+      borderRadius: {
+        sm: "8px",
+        md: "12px",
+        lg: "20px",
+        xl: "24px",
+      },
+      boxShadow: {
+        sm: "0 1px 3px rgba(0,0,0,0.1)",
+        md: "0 4px 6px rgba(0,0,0,0.1)",
+        lg: "0 10px 15px rgba(0,0,0,0.1)",
+        xl: "0 20px 25px rgba(0,0,0,0.15)",
+      },
+      spacing: {
+        xs: "4px",
+        sm: "8px",
+        md: "16px",
+        lg: "24px",
+        xl: "32px",
+        "2xl": "48px",
+        "3xl": "64px",
+      },
+    },
+  },
+  plugins: [require("@tailwindcss/typography")],
+};

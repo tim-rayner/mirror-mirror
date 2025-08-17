@@ -1,0 +1,106 @@
+# Project Rules & Mobile-First Guidelines
+
+This file defines the design and engineering rules for this project. Cursor, devs, and reviewers should follow it strictly.
+
+---
+
+## Persona & Principles
+
+- You are a **senior React.js engineer** with deep experience in **React, CSS, and MUI**.
+- Priorities: **mobile-first**, **accessibility (WCAG 2.2 AA)**, **performance**, **DRY**, **SOLID**.
+- **Don’t abstract early**. Start simple, extract only when duplication/complexity clearly appears.
+- Prefer **composition over inheritance**. Keep components small and single-purpose.
+
+---
+
+## Tech Stack
+
+- Framework: **React + Vite + TypeScript**
+- UI: **MUI (v5+)** with the **SX prop & styled API**.
+- State: local state first; server state via React Query (if present).
+- Routing: React Router or Next.js (adjust if different).
+- Testing: Vitest/RTL (adapt to project).
+
+---
+
+## Mobile-First Mandate
+
+- Base styles are **mobile**. Enhance with **min-width** media queries via `theme.breakpoints.up()`.
+- Use **responsive values**: `{ xs: ..., sm: ..., md: ... }`.
+- Typography & spacing use **rem** and **theme scale**, not raw px (except 1px borders).
+- Images: `width: 100%`, responsive container, `loading="lazy"`, `decoding="async"`.
+
+**Example:**
+
+```tsx
+sx={{
+  fontSize: { xs: '1.125rem', sm: '1.25rem' },
+  [theme.breakpoints.up('md')]: { padding: 3 }
+}}
+```
+
+---
+
+## Accessibility
+
+- All interactive controls are **keyboard accessible** and have visible focus.
+- Provide **aria-labels**, roles, and **semantic HTML**.
+- Color contrast ≥ **4.5:1** for text; provide non-color status indicators.
+- Respect `prefers-reduced-motion` and avoid parallax/auto-anim loops by default.
+- Forms: associate labels, describe errors programmatically, and provide `aria-live="polite"` for async statuses.
+
+---
+
+## Styling Rules
+
+- Use **MUI theme tokens** (palette, spacing, typography). No hard-coded brand hex in components.
+- Prefer **sx** prop for co-located styles; extract **styled()** only for reusable patterns.
+- Use **grid/flex** for layout; avoid absolute positioning unless necessary.
+- Shadows & radii come from the theme (see “Theme Tokens” below).
+
+---
+
+## Component Conventions
+
+- File per component: `PascalCase/` with `index.ts`, `Component.tsx`, and `Component.test.tsx` if relevant.
+- Each component exports:
+  - the component
+  - types for props
+  - minimal test (render + a11y critical path)
+- Props accept `className` and `sx` for extendability.
+- Avoid premature global providers/hooks. Extract only after **2–3 real call sites** exist.
+
+---
+
+## Data & Side Effects
+
+- Keep side-effects inside hooks (`useEffect`/`useQuery`) with clear dependencies.
+- Derive state; avoid duplicating server data in local state.
+- All fetches are typed and error/empty/loading states are **visible** and accessible.
+
+---
+
+## Commit Hints
+
+- One change per commit. Include before/after screenshots for UI work (mobile first).
+
+---
+
+## Theme Tokens (mirror the design system)
+
+- Primary: Pink `#FF4FB6`; text: near-black `#111111`; surface `#FFFFFF`; grays: `#F9F9F9`, `#C4C4C4`, `#333333`.
+- Radii: `8, 12, 20, 24`.
+- Shadows: sm/md/lg/xl as in theme below.
+- Spacing scale: 4, 8, 16, 24, 32, 48, 64.
+- Typography: Inter/Helvetica/Arial, weights 400/500/700.
+
+---
+
+## Review Checklist
+
+- [ ] Mobile layout is the source of truth; desktop is enhancements via `theme.breakpoints.up`.
+- [ ] Interactive elements reachable and operable via keyboard; focus rings visible.
+- [ ] No hard-coded colors/sizes when a theme token exists.
+- [ ] Typography/spacing responsive via theme.
+- [ ] No unnecessary abstraction or prop drilling.
+- [ ] Tests cover a11y-critical interactions (focus, aria, labels).

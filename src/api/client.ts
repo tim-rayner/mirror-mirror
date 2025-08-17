@@ -4,6 +4,9 @@
 const API_BASE_URL =
   import.meta.env.VITE_MIRROR_API_URL || "http://192.168.1.80:8080";
 
+// API Key for authentication (optional)
+const API_KEY = import.meta.env.VITE_MIRROR_API_KEY;
+
 export interface Module {
   identifier: string;
   name: string;
@@ -68,6 +71,8 @@ async function apiRequest<T>(
       Accept: "application/json",
       // Only set Content-Type for non-simple requests (i.e., when we send a body)
       ...(isSimpleRequest ? {} : { "Content-Type": "application/json" }),
+      // Add API key if available
+      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
       ...(options.headers || {}),
     };
 

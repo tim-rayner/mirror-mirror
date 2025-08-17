@@ -74,13 +74,23 @@ For production deployment, configure MMM-Remote-Control with proper CORS setting
 - Verify module identifiers match your Magic Mirror setup
 - Test individual endpoints in the `/test` page
 
+#### Issue: "Forbidden: API Key Not Provided!"
+
+**Solution**:
+
+- Add `VITE_MIRROR_API_KEY=your_api_key` to your `.env` file
+- Ensure the API key matches the one in your MMM-Remote-Control configuration
+- API keys are case-sensitive
+- Restart the development server after adding the environment variable
+
 ### 5. Environment Variables
 
-For production, set the correct API URL:
+For production, set the correct API URL and optional API key:
 
 ```bash
 # .env file
 VITE_MIRROR_API_URL=http://your-mirror-ip:8080
+VITE_MIRROR_API_KEY=your_api_key_here  # Optional - only if API key auth is enabled
 ```
 
 ### 6. Debug Mode

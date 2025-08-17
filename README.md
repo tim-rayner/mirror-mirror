@@ -57,6 +57,9 @@ Create a `.env` file with the following variables:
 ```bash
 # MMM-Remote-Control API Configuration
 VITE_MIRROR_API_URL=http://localhost:8080
+
+# API Key (optional - only if MMM-Remote-Control is configured to require authentication)
+VITE_MIRROR_API_KEY=your_api_key_here
 ```
 
 **Common configurations:**
@@ -96,7 +99,9 @@ git clone https://github.com/Jopyth/MMM-Remote-Control.git
     cors: {
       origin: ["*"],
       credentials: false
-    }
+    },
+    // Optional: Enable API key authentication
+    // apiKey: "your_secret_api_key_here"
   }
 }
 ```
@@ -126,6 +131,20 @@ The application is configured to work with global CORS settings. Ensure your MMM
 ```
 
 **Note**: This configuration allows any origin to access the API. For production, consider restricting the `origin` array to specific domains.
+
+### API Key Authentication
+
+If you've enabled API key authentication in your MMM-Remote-Control configuration, you'll need to:
+
+1. Set the `apiKey` in your MMM-Remote-Control config.js
+2. Add the same key to your `.env` file as `VITE_MIRROR_API_KEY`
+3. The API key will be automatically included in all requests
+
+**Troubleshooting API Key Issues:**
+
+- If you get "Forbidden: API Key Not Provided!" errors, check that `VITE_MIRROR_API_KEY` is set in your `.env` file
+- Ensure the API key in your `.env` file matches the one in your MMM-Remote-Control configuration
+- API keys are case-sensitive
 
 ## 🎨 Design System
 

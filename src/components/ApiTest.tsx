@@ -110,6 +110,7 @@ export const ApiTest = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: "apiKey " + import.meta.env.VITE_MIRROR_API_KEY,
         },
       });
       const data = await response.text();

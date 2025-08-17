@@ -1,11 +1,11 @@
-// MMM-Remote-Control API client
-// Base URL should be configurable via environment variable
+// MMM-Remote-Control API client (same-origin via Nginx proxy)
+// Nginx should proxy /api/* to http://127.0.0.1:8080 and inject the API key.
+// Your React app should call relative URLs (no hardcoded host/port).
 
-const API_BASE_URL =
-  import.meta.env.VITE_MIRROR_API_URL || "http://192.168.1.80:8080";
-
-// API Key for authentication (optional)
-const API_KEY = import.meta.env.VITE_MIRROR_API_KEY;
+// If you *really* want to override (e.g., during local dev), set VITE_MIRROR_API_URL
+// to a relative path ('' or '/') or to a same-origin subpath. Default is '' (same origin).
+const RAW_BASE = (import.meta.env.VITE_MIRROR_API_URL ?? "").trim();
+const API_BASE_URL = RAW_BASE === "/" ? "" : RAW_BASE; // normalize
 
 export interface Module {
   identifier: string;
@@ -45,7 +45,6 @@ export interface ApiResponse<T> {
 class ApiError extends Error {
   public status: number;
   public response?: unknown;
-
   constructor(message: string, status: number, response?: unknown) {
     super(message);
     this.name = "ApiError";
@@ -54,192 +53,146 @@ class ApiError extends Error {
   }
 }
 
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-
-  try {
-    // Build headers in a CORS-friendly way:
-    //  - Do NOT set Content-Type for GET/HEAD so the request remains a "simple request" and avoids a preflight.
-    //  - For POST/PUT/PATCH with a body, set Content-Type to application/json.
-    const method = (options.method || "GET").toUpperCase();
-    const isSimpleRequest = method === "GET" || method === "HEAD";
-
-    const mergedHeaders: HeadersInit = {
-      Accept: "application/json",
-      // Only set Content-Type for non-simple requests (i.e., when we send a body)
-      ...(isSimpleRequest ? {} : { "Content-Type": "application/json" }),
-      // Add API key if available
-      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-      ...(options.headers || {}),
-    };
-
-    const response = await fetch(url, {
-      // Keep CORS mode enabled so the browser enforces it properly
-      mode: "cors",
-      credentials: "omit",
-      ...options,
-      headers: mergedHeaders,
-    });
-
-    if (!response.ok) {
-      throw new ApiError(
-        `API request failed: ${response.statusText}`,
-        response.status
-      );
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    // Check if it's a CORS error
-    if (error instanceof TypeError && error.message.includes("CORS")) {
-      throw new ApiError(
-        `CORS error: The Magic Mirror API is not accessible. Please check your MMM-Remote-Control configuration.`,
-        0
-      );
-    }
-
-    throw new ApiError(
-      `Network error: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`,
-      0
-    );
-  }
+function buildUrl(endpoint: string): string {
+  // Ensure endpoint starts with "/"
+  const ep = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  // When API_BASE_URL is "", fetch() uses same-origin
+  return `${API_BASE_URL}${ep}`;
 }
 
-// MMM-Remote-Control API client based on official documentation
+async function apiRequest<TResp>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<TResp> {
+  const method = (options.method || "GET").toUpperCase();
+  const isSimple = method === "GET" || method === "HEAD";
+
+  // IMPORTANT: no Authorization/API key header here.
+  // Nginx injects "Authorization: apiKey <KEY>" when proxying to MMM.
+  const headers: HeadersInit = {
+    Accept: "application/json",
+    ...(isSimple ? {} : { "Content-Type": "application/json" }),
+    ...(options.headers || {}),
+  };
+
+  const res = await fetch(buildUrl(endpoint), {
+    // default mode is "cors" only for cross-origin; for relative URLs this is same-origin
+    // don't force credentials; not needed for this API
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    // Try to parse JSON error if available
+    let body: unknown = undefined;
+    try {
+      body = await res.json();
+    } catch {
+      // ignore
+    }
+    throw new ApiError(`API ${res.status} ${res.statusText}`, res.status, body);
+  }
+
+  // Endpoints return JSON
+  return (await res.json()) as TResp;
+}
+
+// MMM-Remote-Control API (same-origin)
 export const mirrorApi = {
-  // Mirror Control - Test API
-  testApi: (): Promise<ApiResponse<string>> =>
-    apiRequest<ApiResponse<string>>("/api/test"),
-
-  // Mirror Control - Configuration
-  getConfig: (): Promise<ApiResponse<unknown>> =>
-    apiRequest<ApiResponse<unknown>>("/api/config"),
-
-  saveConfig: (config: unknown): Promise<ApiResponse<void>> =>
+  // Basic checks
+  testApi: () => apiRequest<ApiResponse<string>>("/api/test"),
+  getConfig: () => apiRequest<ApiResponse<unknown>>("/api/config"),
+  saveConfig: (config: unknown) =>
     apiRequest<ApiResponse<void>>("/api/config/edit", {
       method: "POST",
       body: JSON.stringify(config),
     }),
+  getConfigBackups: () => apiRequest<ApiResponse<unknown>>("/api/saves"),
+  saveDefaults: () => apiRequest<ApiResponse<void>>("/api/save"),
 
-  getConfigBackups: (): Promise<ApiResponse<unknown>> =>
-    apiRequest<ApiResponse<unknown>>("/api/saves"),
+  // Monitor
+  turnMonitorOn: () => apiRequest<ApiResponse<void>>("/api/monitor/on"),
+  turnMonitorOff: () => apiRequest<ApiResponse<void>>("/api/monitor/off"),
 
-  saveDefaults: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/save"),
-
-  // Mirror Control - Monitor Control
-  turnMonitorOn: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/monitor/on"),
-
-  turnMonitorOff: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/monitor/off"),
-
-  // Mirror Control - System Actions
-  shutdown: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/shutdown"),
-
-  reboot: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/reboot"),
-
-  restart: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/restart"),
-
-  minimize: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/minimize"),
-
-  toggleFullscreen: (): Promise<ApiResponse<void>> =>
+  // System
+  shutdown: () => apiRequest<ApiResponse<void>>("/api/shutdown"),
+  reboot: () => apiRequest<ApiResponse<void>>("/api/reboot"),
+  restart: () => apiRequest<ApiResponse<void>>("/api/restart"),
+  minimize: () => apiRequest<ApiResponse<void>>("/api/minimize"),
+  toggleFullscreen: () =>
     apiRequest<ApiResponse<void>>("/api/togglefullscreen"),
+  toggleDevTools: () => apiRequest<ApiResponse<void>>("/api/devtools"),
+  refresh: () => apiRequest<ApiResponse<void>>("/api/refresh"),
 
-  toggleDevTools: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/devtools"),
-
-  refresh: (): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>("/api/refresh"),
-
-  // Mirror Control - Brightness
-  setBrightness: (brightness: number): Promise<ApiResponse<void>> =>
+  // Brightness
+  setBrightness: (brightness: number) =>
     apiRequest<ApiResponse<void>>(`/api/brightness/${brightness}`),
 
-  // Mirror Control - Translations
-  getTranslations: (): Promise<ApiResponse<unknown>> =>
-    apiRequest<ApiResponse<unknown>>("/api/translations"),
+  // Translations
+  getTranslations: () => apiRequest<ApiResponse<unknown>>("/api/translations"),
 
-  // Module Control - Classes
-  useClass: (value: string): Promise<ApiResponse<void>> =>
+  // Classes
+  useClass: (value: string) =>
     apiRequest<ApiResponse<void>>(`/api/classes/${value}`),
 
-  // Module Control - User Presence
-  setUserPresence: (value: string): Promise<ApiResponse<void>> =>
+  // User presence
+  setUserPresence: (value: string) =>
     apiRequest<ApiResponse<void>>(`/api/userpresence/${value}`),
 
-  // Module Control - Module Management
-  getModuleActions: (moduleName: string): Promise<ApiResponse<unknown>> =>
-    apiRequest<ApiResponse<unknown>>(`/api/module/${moduleName}`),
+  // Module actions
+  getModuleActions: (moduleName: string) =>
+    apiRequest<ApiResponse<unknown>>(
+      `/api/module/${encodeURIComponent(moduleName)}`
+    ),
 
-  executeModuleAction: (
-    moduleName: string,
-    action: string
-  ): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>(`/api/module/${moduleName}/${action}`),
+  executeModuleAction: (moduleName: string, action: string) =>
+    apiRequest<ApiResponse<void>>(
+      `/api/module/${encodeURIComponent(moduleName)}/${encodeURIComponent(
+        action
+      )}`
+    ),
 
-  getInstalledModules: (): Promise<ApiResponse<Module[]>> =>
+  // Installed/available (filesystem)
+  getInstalledModules: () =>
     apiRequest<ApiResponse<Module[]>>("/api/module/installed"),
-
-  getAvailableModules: (): Promise<ApiResponse<Module[]>> =>
+  getAvailableModules: () =>
     apiRequest<ApiResponse<Module[]>>("/api/module/available"),
 
-  getActiveModules: async (): Promise<
-    { success: true; data: ActiveModule[] } | { success: false }
-  > => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/module`);
-      if (!res.ok) return { success: false as const };
-      const body = await res.json();
-      return {
-        success: body?.success === true,
-        data: body?.data as ActiveModule[],
-      };
-    } catch {
-      return { success: false as const };
-    }
+  // Active modules (runtime)
+  getActiveModules: async () => {
+    const body = await apiRequest<ApiResponse<ActiveModule[]>>("/api/module"); // singular
+    return body;
   },
 
-  // Module visibility control
-  hideModule: (moduleName: string): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>(`/api/module/${moduleName}/hide`),
+  // Visibility
+  hideModule: (moduleName: string) =>
+    apiRequest<ApiResponse<void>>(
+      `/api/module/${encodeURIComponent(moduleName)}/hide`
+    ),
+  showModule: (moduleName: string) =>
+    apiRequest<ApiResponse<void>>(
+      `/api/module/${encodeURIComponent(moduleName)}/show`
+    ),
 
-  showModule: (moduleName: string): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>(`/api/module/${moduleName}/show`),
-
-  updateModule: (moduleName: string): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>(`/api/update/${moduleName}`),
-
-  installModule: (moduleData: unknown): Promise<ApiResponse<void>> =>
+  // Update/install
+  updateModule: (moduleName: string) =>
+    apiRequest<ApiResponse<void>>(
+      `/api/update/${encodeURIComponent(moduleName)}`
+    ),
+  installModule: (moduleData: unknown) =>
     apiRequest<ApiResponse<void>>("/api/install", {
       method: "POST",
       body: JSON.stringify(moduleData),
     }),
 
-  // Notifications
-  sendNotification: (
-    notification: string,
-    payload?: string
-  ): Promise<ApiResponse<void>> =>
+  // Notifications & commands
+  sendNotification: (notification: string, payload?: string) =>
     apiRequest<ApiResponse<void>>(
-      `/api/notification/${notification}${payload ? `/${payload}` : ""}`
+      `/api/notification/${encodeURIComponent(notification)}${
+        payload ? `/${encodeURIComponent(payload)}` : ""
+      }`
     ),
 
-  // Commands
-  executeCommand: (value: string): Promise<ApiResponse<void>> =>
-    apiRequest<ApiResponse<void>>(`/api/command/${value}`),
+  executeCommand: (value: string) =>
+    apiRequest<ApiResponse<void>>(`/api/command/${encodeURIComponent(value)}`),
 };

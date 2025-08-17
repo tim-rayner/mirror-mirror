@@ -13,10 +13,12 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import type { Module } from "../api/client";
+import type { ActiveModule as Module } from "../api/client";
 import { mirrorApi } from "../api/client";
 import { FairytaleHeading } from "../components/FairytaleHeading";
+import { filterBlacklistedModules } from "../constants/moduleBlacklist";
 import { useAppManager } from "../hooks/useAppManager";
+import { normalizeModuleName } from "../utils/moduleNameUtils";
 
 export const Modules = () => {
   const [modules, setModules] = useState<Module[]>([]);
@@ -25,28 +27,51 @@ export const Modules = () => {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>(
     {}
   );
+  const [moduleStates, setModuleStates] = useState<Record<string, boolean>>({});
 
-  const {
-    initializeAppStates,
-    toggleMirrorVisibility,
-    toggleDashboardVisibility,
-    getAppState,
-  } = useAppManager();
+  const { initializeAppStates, toggleDashboardVisibility, getAppState } =
+    useAppManager();
 
-  // helper for consistent IDs
   const getId = (m: Module) => m.identifier ?? m.longname ?? m.name;
+
+  // Get display name for UI (normalized version of module name)
+  const getDisplayName = (m: Module) => {
+    return normalizeModuleName(m.name);
+  };
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError(null);
+        const res = await mirrorApi.getActiveModules();
+        if (!res.success || !res.data)
+          throw new Error("Failed to fetch active modules");
 
-        const res = await mirrorApi.getInstalledModules();
-        if (!res.success || !res.data) throw new Error("Failed to fetch apps");
+        // Filter out blacklisted modules
+        const filteredModules = filterBlacklistedModules(res.data);
+        setModules(filteredModules);
 
-        setModules(res.data);
-        initializeAppStates(res.data);
+        // Initialize mirror visibility states from API response
+        const initial = filteredModules.reduce<Record<string, boolean>>(
+          (acc, m) => {
+            acc[getId(m)] = !(m.hidden ?? false);
+            return acc;
+          },
+          {}
+        );
+        setModuleStates(initial);
+
+        // Initialize app manager states for dashboard functionality
+        // Convert ActiveModule[] to Module[] for compatibility
+        const moduleData = filteredModules.map((m) => ({
+          identifier: m.identifier ?? m.longname ?? m.name,
+          name: m.name,
+          longname: m.longname,
+          desc: m.desc,
+          hidden: m.hidden,
+        }));
+        initializeAppStates(moduleData);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to fetch apps");
       } finally {
@@ -57,22 +82,24 @@ export const Modules = () => {
 
   const handleModuleToggle = async (module: Module) => {
     const id = getId(module);
-    const appState = getAppState(id);
-    if (!appState) return;
+    const next = !(moduleStates[id] ?? false);
 
     setLoadingStates((s) => ({ ...s, [id]: true }));
+    setModuleStates((s) => ({ ...s, [id]: next })); // optimistic
 
     try {
       const name = module.longname ?? module.name;
-      if (appState.isVisibleOnMirror) {
-        await mirrorApi.hideModule(name);
+      if (next) {
+        const r = await mirrorApi.showModule(name);
+        if (!r.success) throw new Error("Show failed");
       } else {
-        await mirrorApi.showModule(name);
+        const r = await mirrorApi.hideModule(name);
+        if (!r.success) throw new Error("Hide failed");
       }
-
-      toggleMirrorVisibility(id);
     } catch (err) {
-      console.error(`Failed to toggle ${module.name}`, err);
+      // revert on failure
+      setModuleStates((s) => ({ ...s, [id]: !next }));
+      console.error(`Failed to toggle ${getDisplayName(module)}`, err);
     } finally {
       setLoadingStates((s) => ({ ...s, [id]: false }));
     }
@@ -138,24 +165,24 @@ export const Modules = () => {
                         sx={{ display: "flex", alignItems: "center", mb: 1 }}
                       >
                         <Typography variant="h6" component="h3" sx={{ mr: 2 }}>
-                          {module.name}
+                          {getDisplayName(module)}
                         </Typography>
                         <Chip
                           label={
-                            appState.isVisibleOnMirror ? "Active" : "Inactive"
+                            moduleStates[id] ?? false ? "Active" : "Inactive"
                           }
                           size="small"
                           color={
-                            appState.isVisibleOnMirror ? "success" : "default"
+                            moduleStates[id] ?? false ? "success" : "default"
                           }
                           variant={
-                            appState.isVisibleOnMirror ? "filled" : "outlined"
+                            moduleStates[id] ?? false ? "filled" : "outlined"
                           }
                         />
                       </Box>
                       <Typography variant="body2" color="text.secondary">
                         {module.desc ??
-                          (appState.isVisibleOnMirror
+                          (moduleStates[id] ?? false
                             ? "This app is currently visible on your mirror."
                             : "This app is currently hidden from your mirror.")}
                       </Typography>
@@ -179,7 +206,7 @@ export const Modules = () => {
                           }
                           aria-label={`${
                             appState.isHiddenFromDashboard ? "Show" : "Hide"
-                          } ${module.name} from dashboard`}
+                          } ${getDisplayName(module)} from dashboard`}
                         >
                           {appState.isHiddenFromDashboard ? (
                             <DashboardOutlined />
@@ -189,11 +216,11 @@ export const Modules = () => {
                         </IconButton>
                       </Tooltip>
                       <Switch
-                        checked={appState.isVisibleOnMirror}
+                        checked={moduleStates[id] ?? false}
                         onChange={() => handleModuleToggle(module)}
                         disabled={loadingStates[id] ?? false}
                         color="primary"
-                        aria-label={`Toggle ${module.name}`}
+                        aria-label={`Toggle ${getDisplayName(module)}`}
                       />
                     </Box>
                   </Box>

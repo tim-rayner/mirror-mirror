@@ -14,6 +14,14 @@ export interface Module {
   config?: Record<string, unknown>;
 }
 
+export type ActiveModule = {
+  name: string;
+  longname?: string;
+  identifier?: string;
+  hidden?: boolean;
+  desc?: string;
+};
+
 export interface SystemInfo {
   success: boolean;
   data?: {
@@ -184,6 +192,22 @@ export const mirrorApi = {
 
   getAvailableModules: (): Promise<ApiResponse<Module[]>> =>
     apiRequest<ApiResponse<Module[]>>("/api/module/available"),
+
+  getActiveModules: async (): Promise<
+    { success: true; data: ActiveModule[] } | { success: false }
+  > => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/module`);
+      if (!res.ok) return { success: false as const };
+      const body = await res.json();
+      return {
+        success: body?.success === true,
+        data: body?.data as ActiveModule[],
+      };
+    } catch {
+      return { success: false as const };
+    }
+  },
 
   // Module visibility control
   hideModule: (moduleName: string): Promise<ApiResponse<void>> =>

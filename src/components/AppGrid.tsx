@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { AppState } from "../hooks/useAppManager";
+import { normalizeModuleName } from "../utils/moduleNameUtils";
 
 interface AppGridProps {
   apps: AppState[];
@@ -24,6 +25,11 @@ export const AppGrid = ({
   loadingStates = {},
 }: AppGridProps) => {
   const theme = useTheme();
+
+  // Get display name for UI (normalized version of module name)
+  const getDisplayName = (app: AppState) => {
+    return normalizeModuleName(app.name);
+  };
 
   if (apps.length === 0) {
     return (
@@ -101,7 +107,7 @@ export const AppGrid = ({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {app.name}
+                    {getDisplayName(app)}
                   </Typography>
                   {app.longname && app.longname !== app.name && (
                     <Typography
@@ -178,7 +184,7 @@ export const AppGrid = ({
                   disabled={loadingStates[app.id] || false}
                   color="primary"
                   size="small"
-                  aria-label={`Toggle ${app.name} on mirror`}
+                  aria-label={`Toggle ${getDisplayName(app)} on mirror`}
                 />
               </Box>
             </CardContent>
